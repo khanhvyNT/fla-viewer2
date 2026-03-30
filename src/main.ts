@@ -148,7 +148,7 @@ export class FLAViewerApp {
 
   private setupEventListeners(): void {
     // File drop zone
-    this.dropZone.addEventListener('click', () => this.fileInput.click());
+    // this.dropZone.addEventListener('click', () => this.fileInput.click()); // Removed since it's now a label
     this.dropZone.addEventListener('dragover', (e) => {
       e.preventDefault();
       this.dropZone.classList.add('dragover');
