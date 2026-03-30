@@ -148,20 +148,30 @@ export class FLAViewerApp {
 
   private setupEventListeners(): void {
     // File drop zone
-    this.dropZone.addEventListener('click', () => this.fileInput.click());
     this.dropZone.addEventListener('dragover', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       this.dropZone.classList.add('dragover');
     });
-    this.dropZone.addEventListener('dragleave', () => {
+    this.dropZone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       this.dropZone.classList.remove('dragover');
     });
     this.dropZone.addEventListener('drop', (e) => {
       e.preventDefault();
+      e.stopPropagation();
       this.dropZone.classList.remove('dragover');
-      const files = e.dataTransfer?.files;
-      if (files && files.length > 0) {
-        this.loadFile(files[0]);
+      try {
+        const files = e.dataTransfer?.files;
+        if (files && files.length > 0) {
+          console.log('Drag and drop: loading file', files[0].name);
+          this.loadFile(files[0]);
+        }
+      } catch (error) {
+        console.warn('Drag and drop failed:', error);
+        // Fallback: try to trigger file input
+        this.fileInput.click();
       }
     });
 
@@ -222,8 +232,10 @@ export class FLAViewerApp {
 
     // File input
     this.fileInput.addEventListener('change', () => {
+      console.log('File input change event triggered');
       const files = this.fileInput.files;
       if (files && files.length > 0) {
+        console.log('Loading file:', files[0].name);
         this.loadFile(files[0]);
       }
     });
@@ -303,15 +315,20 @@ export class FLAViewerApp {
       this.canvasDragStartX = e.clientX;
       this.canvasDragStartY = e.clientY;
       this.canvas.style.cursor = 'grabbing';
+      e.preventDefault();
     });
 
     document.addEventListener('mousemove', (e) => {
       if (!this.isDraggingCanvas || !this.player) return;
-      const dx = (e.clientX - this.canvasDragStartX) * 0.5; // Scale down for better control
-      const dy = (e.clientY - this.canvasDragStartY) * 0.5;
-      this.player.pan(dx, dy);
-      this.canvasDragStartX = e.clientX;
-      this.canvasDragStartY = e.clientY;
+      try {
+        const dx = (e.clientX - this.canvasDragStartX) * 0.5; // Scale down for better control
+        const dy = (e.clientY - this.canvasDragStartY) * 0.5;
+        this.player.pan(dx, dy);
+        this.canvasDragStartX = e.clientX;
+        this.canvasDragStartY = e.clientY;
+      } catch (error) {
+        console.warn('Canvas pan failed:', error);
+      }
     });
 
     document.addEventListener('mouseup', () => {
@@ -327,16 +344,22 @@ export class FLAViewerApp {
       this.isDraggingCanvas = true;
       this.canvasDragStartX = e.touches[0].clientX;
       this.canvasDragStartY = e.touches[0].clientY;
+      e.preventDefault();
     });
 
     document.addEventListener('touchmove', (e) => {
       if (!this.isDraggingCanvas || !this.player) return;
-      const touch = e.touches[0];
-      const dx = (touch.clientX - this.canvasDragStartX) * 0.5;
-      const dy = (touch.clientY - this.canvasDragStartY) * 0.5;
-      this.player.pan(dx, dy);
-      this.canvasDragStartX = touch.clientX;
-      this.canvasDragStartY = touch.clientY;
+      try {
+        const touch = e.touches[0];
+        const dx = (touch.clientX - this.canvasDragStartX) * 0.5;
+        const dy = (touch.clientY - this.canvasDragStartY) * 0.5;
+        this.player.pan(dx, dy);
+        this.canvasDragStartX = touch.clientX;
+        this.canvasDragStartY = touch.clientY;
+        e.preventDefault();
+      } catch (error) {
+        console.warn('Canvas touch pan failed:', error);
+      }
     });
 
     document.addEventListener('touchend', () => {
