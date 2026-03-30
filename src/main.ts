@@ -63,6 +63,22 @@ export class FLAViewerApp {
   private prevSceneBtn: HTMLButtonElement;
   private nextSceneBtn: HTMLButtonElement;
   private sceneInfo: HTMLElement;
+  // Mobile controls
+  private zoomInBtn: HTMLButtonElement;
+  private zoomOutBtn: HTMLButtonElement;
+  private resetViewBtn: HTMLButtonElement;
+  private panUpBtn: HTMLButtonElement;
+  private panDownBtn: HTMLButtonElement;
+  private panLeftBtn: HTMLButtonElement;
+  private panRightBtn: HTMLButtonElement;
+  // Drag state for upload panel
+  private isDraggingDropZone: boolean = false;
+  private dragOffsetX: number = 0;
+  private dragOffsetY: number = 0;
+  // Drag state for canvas pan
+  private isDraggingCanvas: boolean = false;
+  private canvasDragStartX: number = 0;
+  private canvasDragStartY: number = 0;
 
   constructor() {
     this.parser = new FLAParser();
@@ -118,6 +134,14 @@ export class FLAViewerApp {
     this.prevSceneBtn = document.getElementById('prev-scene-btn') as HTMLButtonElement;
     this.nextSceneBtn = document.getElementById('next-scene-btn') as HTMLButtonElement;
     this.sceneInfo = document.getElementById('scene-info')!;
+    // Mobile controls
+    this.zoomInBtn = document.getElementById('zoom-in-btn') as HTMLButtonElement;
+    this.zoomOutBtn = document.getElementById('zoom-out-btn') as HTMLButtonElement;
+    this.resetViewBtn = document.getElementById('reset-view-btn') as HTMLButtonElement;
+    this.panUpBtn = document.getElementById('pan-up-btn') as HTMLButtonElement;
+    this.panDownBtn = document.getElementById('pan-down-btn') as HTMLButtonElement;
+    this.panLeftBtn = document.getElementById('pan-left-btn') as HTMLButtonElement;
+    this.panRightBtn = document.getElementById('pan-right-btn') as HTMLButtonElement;
 
     this.setupEventListeners();
   }
@@ -139,6 +163,61 @@ export class FLAViewerApp {
       if (files && files.length > 0) {
         this.loadFile(files[0]);
       }
+    });
+
+    // Drag to move upload panel
+    this.dropZone.addEventListener('mousedown', (e) => {
+      // Only drag on the main area, not on buttons
+      if ((e.target as HTMLElement).closest('button')) return;
+      this.isDraggingDropZone = true;
+      const rect = this.dropZone.getBoundingClientRect();
+      this.dragOffsetX = e.clientX - rect.left;
+      this.dragOffsetY = e.clientY - rect.top;
+      this.dropZone.style.cursor = 'grabbing';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!this.isDraggingDropZone) return;
+      const x = e.clientX - this.dragOffsetX;
+      const y = e.clientY - this.dragOffsetY;
+      this.dropZone.style.position = 'fixed';
+      this.dropZone.style.right = 'auto';
+      this.dropZone.style.bottom = 'auto';
+      this.dropZone.style.left = Math.max(0, Math.min(x, window.innerWidth - (this.dropZone.offsetWidth || 280))) + 'px';
+      this.dropZone.style.top = Math.max(0, Math.min(y, window.innerHeight - (this.dropZone.offsetHeight || 180))) + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (this.isDraggingDropZone) {
+        this.isDraggingDropZone = false;
+        this.dropZone.style.cursor = 'pointer';
+      }
+    });
+
+    // Touch support for dragging on mobile
+    this.dropZone.addEventListener('touchstart', (e) => {
+      if ((e.target as HTMLElement).closest('button')) return;
+      this.isDraggingDropZone = true;
+      const rect = this.dropZone.getBoundingClientRect();
+      const touch = e.touches[0];
+      this.dragOffsetX = touch.clientX - rect.left;
+      this.dragOffsetY = touch.clientY - rect.top;
+    });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!this.isDraggingDropZone) return;
+      const touch = e.touches[0];
+      const x = touch.clientX - this.dragOffsetX;
+      const y = touch.clientY - this.dragOffsetY;
+      this.dropZone.style.position = 'fixed';
+      this.dropZone.style.right = 'auto';
+      this.dropZone.style.bottom = 'auto';
+      this.dropZone.style.left = Math.max(0, Math.min(x, window.innerWidth - (this.dropZone.offsetWidth || 280))) + 'px';
+      this.dropZone.style.top = Math.max(0, Math.min(y, window.innerHeight - (this.dropZone.offsetHeight || 180))) + 'px';
+    });
+
+    document.addEventListener('touchend', () => {
+      this.isDraggingDropZone = false;
     });
 
     // File input
@@ -186,6 +265,82 @@ export class FLAViewerApp {
     this.skipImagesBtn.addEventListener('click', () => {
       this.skipImagesFix = true;
       this.skipImagesBtn.classList.add('hidden');
+    });
+
+    // Mobile controls
+    this.zoomInBtn.addEventListener('click', () => {
+      this.player?.zoomIn();
+    });
+
+    this.zoomOutBtn.addEventListener('click', () => {
+      this.player?.zoomOut();
+    });
+
+    this.resetViewBtn.addEventListener('click', () => {
+      this.player?.resetZoom();
+      this.player?.resetPan();
+    });
+
+    this.panUpBtn.addEventListener('click', () => {
+      this.player?.pan(0, 20);
+    });
+
+    this.panDownBtn.addEventListener('click', () => {
+      this.player?.pan(0, -20);
+    });
+
+    this.panLeftBtn.addEventListener('click', () => {
+      this.player?.pan(20, 0);
+    });
+
+    this.panRightBtn.addEventListener('click', () => {
+      this.player?.pan(-20, 0);
+    });
+
+    // Canvas drag to pan (for mobile users)
+    this.canvas.addEventListener('mousedown', (e) => {
+      this.isDraggingCanvas = true;
+      this.canvasDragStartX = e.clientX;
+      this.canvasDragStartY = e.clientY;
+      this.canvas.style.cursor = 'grabbing';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!this.isDraggingCanvas || !this.player) return;
+      const dx = (e.clientX - this.canvasDragStartX) * 0.5; // Scale down for better control
+      const dy = (e.clientY - this.canvasDragStartY) * 0.5;
+      this.player.pan(dx, dy);
+      this.canvasDragStartX = e.clientX;
+      this.canvasDragStartY = e.clientY;
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (this.isDraggingCanvas) {
+        this.isDraggingCanvas = false;
+        this.canvas.style.cursor = 'grab';
+      }
+    });
+
+    // Touch support for canvas pan on mobile
+    this.canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length > 1) return; // Only single touch
+      this.isDraggingCanvas = true;
+      this.canvasDragStartX = e.touches[0].clientX;
+      this.canvasDragStartY = e.touches[0].clientY;
+    });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!this.isDraggingCanvas || !this.player) return;
+      const touch = e.touches[0];
+      const dx = (touch.clientX - this.canvasDragStartX) * 0.5;
+      const dy = (touch.clientY - this.canvasDragStartY) * 0.5;
+      this.player.pan(dx, dy);
+      this.canvasDragStartX = touch.clientX;
+      this.canvasDragStartY = touch.clientY;
+    });
+
+    document.addEventListener('touchend', () => {
+      this.isDraggingCanvas = false;
     });
 
     // Timeline scrubbing (uses global frames to seek across scenes)
@@ -282,16 +437,54 @@ export class FLAViewerApp {
           this.togglePlay();
           break;
         case 'ArrowLeft':
-          this.player.prevFrame();
-          break;
         case 'ArrowRight':
-          this.player.nextFrame();
+        case 'ArrowUp':
+        case 'ArrowDown': {
+          // If Shift is held, pan the canvas instead of navigating frames
+          if (e.shiftKey) {
+            e.preventDefault();
+            const panDistance = 20; // pixels per press
+            if (e.key === 'ArrowLeft') {
+              this.player.pan(panDistance, 0);
+            } else if (e.key === 'ArrowRight') {
+              this.player.pan(-panDistance, 0);
+            } else if (e.key === 'ArrowUp') {
+              this.player.pan(0, panDistance);
+            } else if (e.key === 'ArrowDown') {
+              this.player.pan(0, -panDistance);
+            }
+          } else {
+            // Normal frame navigation
+            if (e.key === 'ArrowLeft') {
+              this.player.prevFrame();
+            } else if (e.key === 'ArrowRight') {
+              this.player.nextFrame();
+            }
+          }
           break;
+        }
         case 'Home':
           this.player.goToFrame(0);
           break;
         case 'End':
           this.player.goToFrame(this.player.getState().totalFrames - 1);
+          break;
+        case '+':
+        case '=':
+          e.preventDefault();
+          this.player.zoomIn();
+          break;
+        case '-':
+        case '_':
+          e.preventDefault();
+          this.player.zoomOut();
+          break;
+        case '0':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            this.player.resetZoom();
+            this.player.resetPan();
+          }
           break;
         case 'd':
         case 'D':
@@ -762,7 +955,7 @@ export class FLAViewerApp {
 
     try {
       // Show loading state
-      this.dropZone.classList.add('hidden');
+      this.dropZone.classList.remove('viewer-mode');
       this.loading.classList.add('active');
       this.viewer.classList.remove('active');
       this.loadingText.textContent = 'Loading...';
@@ -810,6 +1003,9 @@ export class FLAViewerApp {
       // Show viewer
       this.loading.classList.remove('active');
       this.viewer.classList.add('active');
+      
+      // Switch drop-zone to viewer mode (compact floating panel)
+      this.dropZone.classList.add('viewer-mode');
 
       // Check if we have audio and multiple frames
       const hasAudio = this.hasLoadedAudio(doc);
@@ -855,7 +1051,7 @@ export class FLAViewerApp {
       console.error('Failed to load FLA file:', error);
       alert('Failed to load FLA file: ' + (error as Error).message);
       this.loading.classList.remove('active');
-      this.dropZone.classList.remove('hidden');
+      this.dropZone.classList.remove('viewer-mode');
       this.skipImagesBtn.classList.add('hidden');
     }
   }

@@ -61,6 +61,9 @@ export class FLARenderer {
   private doc: FLADocument | null = null;
   private canvas: HTMLCanvasElement;
   private scale: number = 1;
+  private zoomLevel: number = 1; // Manual zoom level (separate from auto-scale)
+  private panX: number = 0; // Pan offset in pixels
+  private panY: number = 0;
   private dpr: number = 1;
   private debugMode: boolean = false;
   private debugElements: DebugElement[] = [];
@@ -291,6 +294,57 @@ export class FLARenderer {
    */
   getCurrentScene(): number {
     return this.currentScene;
+  }
+
+  /**
+   * Zoom in by multiplying zoom level by 1.2
+   */
+  zoomIn(): void {
+    this.zoomLevel = Math.min(this.zoomLevel * 1.2, 4); // Max 400% zoom
+  }
+
+  /**
+   * Zoom out by dividing zoom level by 1.2
+   */
+  zoomOut(): void {
+    this.zoomLevel = Math.max(this.zoomLevel / 1.2, 0.25); // Min 25% zoom
+  }
+
+  /**
+   * Reset zoom to default level
+   */
+  resetZoom(): void {
+    this.zoomLevel = 1;
+  }
+
+  /**
+   * Pan the canvas (offset in pixels)
+   */
+  pan(dx: number, dy: number): void {
+    this.panX += dx;
+    this.panY += dy;
+  }
+
+  /**
+   * Reset pan to origin
+   */
+  resetPan(): void {
+    this.panX = 0;
+    this.panY = 0;
+  }
+
+  /**
+   * Get current zoom level
+   */
+  getZoomLevel(): number {
+    return this.zoomLevel;
+  }
+
+  /**
+   * Get current pan offset
+   */
+  getPanOffset(): { x: number; y: number } {
+    return { x: this.panX, y: this.panY };
   }
 
   // Clear all cached data to force recomputation
@@ -733,9 +787,9 @@ export class FLARenderer {
     // Get effective viewport size
     const viewport = this.getEffectiveViewportSize();
 
-    // Apply DPR and content scale together
-    const combinedScale = this.scale * this.dpr;
-    ctx.setTransform(combinedScale, 0, 0, combinedScale, 0, 0);
+    // Apply DPR, content scale, and zoom together
+    const combinedScale = this.scale * this.zoomLevel * this.dpr;
+    ctx.setTransform(combinedScale, 0, 0, combinedScale, this.panX, this.panY);
 
     // Fill with background color (fill the viewport area)
     ctx.fillStyle = doc.backgroundColor;
